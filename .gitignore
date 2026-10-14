@@ -1,0 +1,17 @@
+# Build output (created by the builds)
+/build/
+
+# Visual Studio user state
+/.vs/
+*.user
+
+# Python bytecode cache (simulator and tests)
+__pycache__/
+
+# Removed by "build.cmd clean"
+/obj/
+/src/cs/bin/
+/src/cs/obj/
+/src/cs/publish/
+/tests/pdu_test.exe
+/tests/pdu_test.obj

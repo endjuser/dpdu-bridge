@@ -1,0 +1,38 @@
+; dpdu_bridge.def - exports of dpdu-bridge-c.dll (see build.cmd).
+; The 29 ISO 22900-2 D-PDU API functions, all __stdcall, exported under
+; undecorated names; hosts look them up by name, so the ordinals are fixed
+; only for this DLL.
+LIBRARY "dpdu-bridge-c"
+EXPORTS
+    PDUConstruct                @1
+    PDUDestruct                 @2
+    PDUModuleConnect            @3
+    PDUModuleDisconnect         @4
+    PDURegisterEventCallback    @5
+    PDUIoCtl                    @6
+    PDUGetVersion               @7
+    PDUGetStatus                @8
+    PDUGetLastError             @9
+    PDUGetTimestamp             @10
+    PDUGetObjectId              @11
+    PDUGetResourceIds           @12
+    PDUGetResourceStatus        @13
+    PDUGetConflictingResources  @14
+    PDUGetModuleIds             @15
+    PDULockResource             @16
+    PDUUnLockResource=PDUUnlockResource @17
+    PDUCreateComLogicalLink     @18
+    PDUDestroyComLogicalLink    @19
+    PDUConnect                  @20
+    PDUDisconnect               @21
+    PDUGetComParam              @22
+    PDUSetComParam              @23
+    PDUGetUniqueRespIdTable     @24
+    PDUSetUniqueRespIdTable     @25
+    PDUStartComPrimitive        @26
+    PDUCancelComPrimitive       @27
+    PDUGetEventItem             @28
+    PDUDestroyItem              @29
+    ; Both spellings of the unlock function are exported: PDUUnLockResource
+    ; above and PDUUnlockResource here; both name the same function.
+    PDUUnlockResource           @30

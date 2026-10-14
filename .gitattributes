@@ -1,0 +1,6 @@
+# cmd.exe can fail to find labels in batch files with LF line endings
+# ("The system cannot find the batch label specified"), so always check them
+# out with CRLF; Visual Studio expects CRLF in solution files.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.sln text eol=crlf

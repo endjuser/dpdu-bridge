@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Example D-PDU API registration for dpdu-bridge.
+
+  Do not use this file as is. Copy the <MVCI_PDU_API> section of each version
+  you want to use into the D-PDU API's own registration file,
+  C:\Program Files (x86)\D-PDU API\pdu_api_root.xml, inside its
+  <MVCI_PDU_API_ROOT> element, and change LIBRARY_FILE to where you put the
+  DLL (see "Installation" in README.md). The paths below point at a build in
+  C:\projects\dpdu\build\.
+-->
+<MVCI_PDU_API_ROOT xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" MVCI_PART2_STANDARD_VERSION="2.2.0">
+
+<!-- C version -->
+<MVCI_PDU_API>
+	<SHORT_NAME>D-PDU Bridge C</SHORT_NAME>
+	<DESCRIPTION>D-PDU Serial/TCP Bridge (C)</DESCRIPTION>
+	<SUPPLIER_NAME>dpdu-bridge</SUPPLIER_NAME>
+	<LIBRARY_FILE URI="file:///C:/projects/dpdu/build/dpdu-bridge-c.dll"/>
+	<MODULE_DESCRIPTION_FILE URI=""/>
+	<CABLE_DESCRIPTION_FILE URI=""/>
+</MVCI_PDU_API>
+
+<!-- C# version -->
+<MVCI_PDU_API>
+	<SHORT_NAME>D-PDU Bridge C#</SHORT_NAME>
+	<DESCRIPTION>D-PDU Serial/TCP Bridge (C#)</DESCRIPTION>
+	<SUPPLIER_NAME>dpdu-bridge</SUPPLIER_NAME>
+	<LIBRARY_FILE URI="file:///C:/projects/dpdu/build/dpdu-bridge-cs.dll"/>
+	<MODULE_DESCRIPTION_FILE URI=""/>
+	<CABLE_DESCRIPTION_FILE URI=""/>
+</MVCI_PDU_API>
+
+</MVCI_PDU_API_ROOT>

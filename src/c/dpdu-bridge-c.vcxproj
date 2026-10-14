@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  C version of the D-PDU bridge for Visual Studio (dpdu-bridge.sln), with the
+  same compiler and linker settings as "build.cmd c".  Output goes to
+  obj\vs\<Configuration>\; like build.cmd, dpdu-bridge-c.dll is then copied
+  to build\, and src\dpdu-bridge.ini to the output folder and to build\
+  wherever there is no dpdu-bridge.ini yet.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{863A21FB-A56C-4B6C-9446-FA58ED94BFFF}</ProjectGuid>
+    <RootNamespace>dpdu-bridge-c</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Release'">false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <TargetName>dpdu-bridge-c</TargetName>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RepoRoot>
+    <OutDir>$(RepoRoot)obj\vs\$(Configuration)\</OutDir>
+    <IntDir>$(RepoRoot)obj\vs\$(Configuration)\int\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+    </ClCompile>
+    <Link>
+      <ModuleDefinitionFile>dpdu_bridge.def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <!-- the defaults without /DEBUG, as in build.cmd -->
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="dpdu_bridge.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pdu_api.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dpdu_bridge.def" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <!-- Like build.cmd: the DLL to build\, the ini where there is none yet. -->
+  <Target Name="CopyToBuildFolder" AfterTargets="Build">
+    <Copy SourceFiles="$(OutDir)$(TargetName).dll" DestinationFolder="$(RepoRoot)build\" />
+    <Copy SourceFiles="$(RepoRoot)src\dpdu-bridge.ini" DestinationFolder="$(OutDir)"
+          Condition="!Exists('$(OutDir)dpdu-bridge.ini')" />
+    <Copy SourceFiles="$(RepoRoot)src\dpdu-bridge.ini" DestinationFolder="$(RepoRoot)build\"
+          Condition="!Exists('$(RepoRoot)build\dpdu-bridge.ini')" />
+  </Target>
+</Project>

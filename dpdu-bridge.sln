@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dpdu-bridge-cs", "src\cs\DpduBridge.csproj", "{847BB2BE-8E80-47B3-801C-7A4F4C962B0A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dpdu-bridge-c", "src\c\dpdu-bridge-c.vcxproj", "{863A21FB-A56C-4B6C-9446-FA58ED94BFFF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{154B4927-F6C3-4464-8FA3-072A06AAC661}"
+	ProjectSection(SolutionItems) = preProject
+		build.cmd = build.cmd
+		src\dpdu-bridge.ini = src\dpdu-bridge.ini
+		pdu_api_root.example.xml = pdu_api_root.example.xml
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{847BB2BE-8E80-47B3-801C-7A4F4C962B0A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{847BB2BE-8E80-47B3-801C-7A4F4C962B0A}.Debug|x86.Build.0 = Debug|Any CPU
+		{847BB2BE-8E80-47B3-801C-7A4F4C962B0A}.Release|x86.ActiveCfg = Release|Any CPU
+		{847BB2BE-8E80-47B3-801C-7A4F4C962B0A}.Release|x86.Build.0 = Release|Any CPU
+		{863A21FB-A56C-4B6C-9446-FA58ED94BFFF}.Debug|x86.ActiveCfg = Debug|Win32
+		{863A21FB-A56C-4B6C-9446-FA58ED94BFFF}.Debug|x86.Build.0 = Debug|Win32
+		{863A21FB-A56C-4B6C-9446-FA58ED94BFFF}.Release|x86.ActiveCfg = Release|Win32
+		{863A21FB-A56C-4B6C-9446-FA58ED94BFFF}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    C# version of the D-PDU bridge, compiled with Native AOT into a native
+    32-bit DLL with __stdcall exports (no .NET runtime needed on the target).
+
+      build.cmd cs                     (from the repository root)
+
+    Output: src\cs\publish\dpdu-bridge-cs.dll (build.cmd copies it to build\).
+    The exports come from the [UnmanagedCallersOnly] methods in Exports.cs.
+
+    In Visual Studio (dpdu-bridge.sln), a build also publishes (a plain build
+    only gives a managed DLL) and, like build.cmd, copies dpdu-bridge-cs.dll
+    to build\, and src\dpdu-bridge.ini to the publish folder and to build\
+    wherever there is no dpdu-bridge.ini yet.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>dpdu-bridge-cs</AssemblyName>
+    <RootNamespace>DpduBridge</RootNamespace>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+    <PublishAot>true</PublishAot>
+    <NativeLib>Shared</NativeLib>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <IlcOptimizationPreference>Size</IlcOptimizationPreference>
+    <PublishDir>$(MSBuildThisFileDirectory)publish\</PublishDir>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RepoRoot>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Publishes like "dotnet publish" (_IsPublishing makes it self-contained,
+       as Native AOT needs); NestedPublish keeps that inner build from
+       publishing again. -->
+  <Target Name="PublishNativeInVisualStudio" AfterTargets="Build"
+          Condition="'$(BuildingInsideVisualStudio)' == 'true' and '$(NestedPublish)' != 'true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish"
+             Properties="Configuration=$(Configuration);_IsPublishing=true;NestedPublish=true" />
+    <Copy SourceFiles="$(PublishDir)$(TargetName).dll" DestinationFolder="$(RepoRoot)build\" />
+    <Copy SourceFiles="$(RepoRoot)src\dpdu-bridge.ini" DestinationFolder="$(PublishDir)"
+          Condition="!Exists('$(PublishDir)dpdu-bridge.ini')" />
+    <Copy SourceFiles="$(RepoRoot)src\dpdu-bridge.ini" DestinationFolder="$(RepoRoot)build\"
+          Condition="!Exists('$(RepoRoot)build\dpdu-bridge.ini')" />
+  </Target>
+
+</Project>
