@@ -20,6 +20,10 @@
  * call never blocks on I/O.  Host callbacks are always invoked with no lock
  * held.
  *
+ * The same DLL is also a SAE J2534 (PassThru 04.04) device: j2534.c, included
+ * near the end of this file, maps the PassThru API onto the same links and
+ * line protocol.
+ *
  * Build: 32-bit, /W4, see build.cmd.  Exports are listed in dpdu_bridge.def.
  */
 #define WIN32_LEAN_AND_MEAN
@@ -42,6 +46,7 @@
 /* ------------------------------------------------------------------------ */
 
 #define DRIVER_NAME          "dpdu-bridge-c"   /* HELLO line, message box title, log */
+#define DRIVER_VERSION       "2.0"             /* HELLO line, PassThruReadVersion */
 #define MODULE_HANDLE        1u
 #define MODULE_TYPE_ID       1u
 
@@ -1446,8 +1451,13 @@ static int parse_hex_bytes(char *s, UNUM8 *out, int max)
     return n;
 }
 
+/* The J2534 front end (j2534.c, included at the end of this file). */
+static BOOL j2534_is_open(void);
+static void j2534_deliver(BUS bus, const UNUM8 *data, UNUM32 len, UNUM32 canId);
+
 /* Handles one line from a client (reader threads only): RX frames become
- * result events, VBATT sets the battery voltage, '#' comments are ignored. */
+ * result events (or, while a J2534 host has the device open, J2534 receive
+ * messages), VBATT sets the battery voltage, '#' comments are ignored. */
 static void process_line(char *line)
 {
     char *p = line, *cmd, *rest;
@@ -1487,13 +1497,21 @@ static void process_line(char *line)
                 log_msg("RX: bad CAN id '%s'", idTok);
                 return;
             }
-            n = parse_hex_bytes(rest, bytes, MAX_FRAME - 4);
+            /* bytes = 4-byte CAN id + payload, the J2534 message layout */
+            n = parse_hex_bytes(rest, bytes + 4, MAX_FRAME - 4);
             if (n < 0) { log_msg("RX: bad data bytes"); return; }
-            deliver_can(bus, canId, bytes, (UNUM32)n);
+            put_be32(bytes, canId);
+            if (j2534_is_open())
+                j2534_deliver(bus, bytes, (UNUM32)n + 4, canId);
+            else
+                deliver_can(bus, canId, bytes + 4, (UNUM32)n);
         } else {
             n = parse_hex_bytes(rest, bytes, MAX_FRAME);
             if (n <= 0) { log_msg("RX: bad data bytes"); return; }
-            deliver_uart(bus, bytes, (UNUM32)n);
+            if (j2534_is_open())
+                j2534_deliver(bus, bytes, (UNUM32)n, 0);
+            else
+                deliver_uart(bus, bytes, (UNUM32)n);
         }
     } else if (!_stricmp(cmd, "VBATT")) {
         InterlockedExchange(&g_vbattMv, (LONG)strtoul(rest, NULL, 10));
@@ -1625,12 +1643,16 @@ T_PDU_ERROR PDU_API_CALL PDUModuleConnect(UNUM32 hMod)
     }
     LeaveCriticalSection(&g_lock);
 
+    if (j2534_is_open()) {
+        log_msg("the J2534 device of this DLL is open - ReturnValue: PDU_ERR_FCT_FAILED");
+        return PDU_ERR_FCT_FAILED;
+    }
     ok = link_open();
     if (!ok) {
         log_msg("Failed connect comport - ReturnValue: PDU_ERR_FCT_FAILED");
         return PDU_ERR_FCT_FAILED;
     }
-    link_write_line("HELLO " DRIVER_NAME " 1.0");
+    link_write_line("HELLO " DRIVER_NAME " " DRIVER_VERSION);
     EnterCriticalSection(&g_lock);
     g_moduleStatus = PDU_MODST_READY;
     LeaveCriticalSection(&g_lock);
@@ -2479,6 +2501,12 @@ T_PDU_ERROR PDU_API_CALL PDUDestroyItem(PDU_ITEM *pItem)
 }
 
 /* ------------------------------------------------------------------------ */
+/* J2534 (PassThru 04.04) front end                                          */
+/* ------------------------------------------------------------------------ */
+
+#include "j2534.c"
+
+/* ------------------------------------------------------------------------ */
 
 /* Initialises the locks and events and reads the ini.  Nothing is torn down at
  * unload: worker threads hold a module reference, so the DLL cannot be
@@ -2497,6 +2525,7 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD reason, LPVOID reserved)
         g_serialQ.evt = CreateEventA(NULL, FALSE, FALSE, NULL);
         g_tcpQ.evt = CreateEventA(NULL, FALSE, FALSE, NULL);
         QueryPerformanceFrequency(&g_qpf);
+        j2534_init();
         load_config();
         log_msg(DRIVER_NAME " loaded (port %s)", g_linkDesc[0] ? g_linkDesc : "not specified");
     }

@@ -36,7 +36,7 @@ jobs:
 
       - name: Add the registration example
         shell: cmd
-        run: copy pdu_api_root.example.xml build\
+        run: copy pdu_api_root.example.xml build\ && copy j2534_register.example.reg build\
 
       - uses: actions/upload-artifact@v4
         with:
@@ -46,6 +46,7 @@ jobs:
             build/dpdu-bridge-cs.dll
             build/dpdu-bridge.ini
             build/pdu_api_root.example.xml
+            build/j2534_register.example.reg
           if-no-files-found: error
 
   # Only version tags publish a release; this is the only job that can write

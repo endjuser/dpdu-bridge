@@ -1,6 +1,6 @@
-# dpdu-bridge — D-PDU API (ISO 22900-2) serial / TCP bridge
+# dpdu-bridge — D-PDU API + J2534 PassThru Serial/TCP bridge with J1850 VPW ECU simulator
 
-A D-PDU API driver for Tech2Win that talks to ECU simulators instead of a
+A D-PDU API (ISO 22900-2) driver for Tech2Win that talks to ECU simulators instead of a
 vehicle interface. Every message Tech2Win transmits is sent as a text line,
 and lines received back are delivered to Tech2Win as responses. Clients
 connect in two ways, which can be used separately or at the same time:
@@ -21,6 +21,11 @@ built as `dpdu-bridge-cs.dll`. Both are native 32-bit DLLs exporting the 29
 `__stdcall` D-PDU functions (the unlock function under both spellings,
 `PDUUnlockResource` and `PDUUnLockResource`), and they can be installed side
 by side.
+
+Both DLLs are also **J2534 (PassThru 04.04) devices**: they export the 14
+`PassThru*` functions as well, so Tech2Win (or another J2534 host) can use
+the same bridge, simulator and line protocol through J2534 instead of the
+D-PDU API. See [J2534](#j2534).
 
 ## Requirements
 
@@ -86,6 +91,9 @@ by side.
 | `sim/vpw.py` | J1850 VPW module simulation (J2178 / J2190 / J1979) used by `ecu_sim.py` |
 | `sim/ecu.json` | the vehicle's VPW modules: address, supported commands, PIDs, DPIDs, blocks |
 | `tests/pdu_test.c` | Tech2Win-like end-to-end test |
+| `tests/j2534_test.c` | end-to-end test of the DLLs' J2534 side |
+| `j2534_register.example.reg` | J2534 registration of both DLLs (see [J2534](#j2534)) |
+| `src/c/j2534.c`, `src/cs/J2534*.cs` | the DLLs' J2534 front end |
 | `tests/test_vpw.py` | unit tests for the VPW simulation against `sim/ecu.json` (`python tests\test_vpw.py`) |
 | `pdu_api_root.example.xml` | sections to add to the D-PDU API's `pdu_api_root.xml` (see [Installation](#installation)) |
 | `src/dpdu-bridge.ini` | default settings, copied to `build/` (see [Configuration](#configuration)) |
@@ -96,8 +104,8 @@ by side.
 ```
 build.cmd c        C version, build\dpdu-bridge-c.dll   (needs the Visual Studio C++ tools)
 build.cmd cs       C# version, build\dpdu-bridge-cs.dll (needs the .NET 9 SDK and the Visual Studio C++ tools)
-build.cmd test     tests\pdu_test.exe (needs the Visual Studio C++ tools)
-build.cmd clean    deletes obj\, src\cs\bin\, src\cs\obj\, src\cs\publish\ and tests\pdu_test.exe
+build.cmd test     tests\pdu_test.exe and tests\j2534_test.exe (needs the Visual Studio C++ tools)
+build.cmd clean    deletes obj\, src\cs\bin\, src\cs\obj\, src\cs\publish\ and the test programs
 ```
 
 The parameter is required. The C++ tools are taken from the VS 2022 Build
@@ -140,8 +148,9 @@ yet. Debug and Release configurations are available.
 `.github/workflows/release.yml` builds both versions on GitHub's Windows
 runners for every push to `main` and every pull request; the run's
 `dpdu-bridge` artifact holds `dpdu-bridge-c.dll`, `dpdu-bridge-cs.dll`,
-`dpdu-bridge.ini` and `pdu_api_root.example.xml`. Pushing a version tag also
-publishes a GitHub release with those four files and generated release notes:
+`dpdu-bridge.ini`, `pdu_api_root.example.xml` and
+`j2534_register.example.reg`. Pushing a version tag also publishes a GitHub
+release with those five files and generated release notes:
 
 ```
 git tag v1.0.0
@@ -227,7 +236,9 @@ Test without Tech2Win: `build.cmd test`, then, with the simulator running,
 which loads the DLL from the current folder, else `build\`. Without `-c` /
 `-cs` it uses `dpdu-bridge-c.dll` if it exists, else `dpdu-bridge-cs.dll`;
 a DLL path also works. In TCP mode, add a wait so the simulator can connect:
-`tests\pdu_test.exe -c 1500`. The simulator's unit tests run with
+`tests\pdu_test.exe -c 1500`. The J2534 side is tested the same way with
+`tests\j2534_test.exe`, with the same arguments (e.g.
+`tests\j2534_test.exe -cs 1500`). The simulator's unit tests run with
 `python tests\test_vpw.py`.
 
 ## ECU simulator
@@ -391,6 +402,107 @@ The serial port and each TCP connection are all treated as clients:
 - Stubs that return `PDU_STATUS_NOERROR` without filling outputs: `PDUGetComParam`,
   `PDUGetUniqueRespIdTable`, the resource functions, lock/unlock, and `PDUGetLastError`.
 
+## J2534
+
+Both DLLs also export the SAE J2534-1 04.04 API (`PassThruOpen` …
+`PassThruIoctl`, all 14 functions, `__stdcall`, 32-bit), with identical
+behaviour (`src/c/j2534.c`, `src/cs/J2534*.cs`). They use the same ini, log,
+serial / TCP links, simulator and line protocol as the D-PDU side.
+
+**Registration.** J2534 hosts find devices in the registry under
+`HKLM\SOFTWARE\PassThruSupport.04.04` (for 32-bit hosts such as Tech2Win on
+64-bit Windows: `HKLM\SOFTWARE\WOW6432Node\PassThruSupport.04.04`).
+`j2534_register.example.reg` has one entry per DLL (`Name` `dpdu-c` /
+`dpdu-cs`). Keep the one(s) you want, change `FunctionLibrary` to where the
+DLL is, and import the file as administrator. Then select the device in the
+host. Keep `Name` to 7 characters or fewer: Tech2Win shows a longer one as
+empty.
+
+**One API at a time.** The D-PDU API and J2534 share the links. While a
+D-PDU host has the module connected, `PassThruOpen` fails with
+`ERR_DEVICE_IN_USE`; while a J2534 host has the device open,
+`PDUModuleConnect` fails.
+
+**Behaviour:**
+
+- One device, DeviceID 1. `PassThruOpen` opens the links and sends
+  `HELLO <name> 2.0 J2534`; `PassThruClose` sends `BYE`. Without a
+  usable port it shows the same message box as `PDUConstruct` and returns
+  `ERR_DEVICE_NOT_CONNECTED`.
+- Protocols (one channel per protocol id): `J1850VPW` → VPW; `CAN`,
+  `ISO15765`, `CAN_PS`, `ISO15765_PS` → HSCAN; `SW_CAN_PS`, `SW_ISO15765_PS`
+  → SWCAN; `GM_UART_PS` (`0x8009`) and GM's vendor id `0x10003` → ALDL. Others (J1850 PWM,
+  K-line, …) return `ERR_INVALID_PROTOCOL_ID`. `PassThruConnect` sends
+  `OPEN <ch> <BUS> PROTOCOL=<J2534 protocol id> …` and
+  `PARAM <ch> DATA_RATE <baud>`; `PassThruDisconnect` sends `CLOSE <ch>`.
+- `PassThruWriteMsgs` sends each message as a `TX` line, after a `PROTOCOL`
+  line when the active bus changes. CAN messages start with the 4-byte id.
+  **ISO 15765** messages are complete messages (up to 4095 bytes after the id,
+  no PCI bytes), exactly what the line protocol carries: the simulator plays
+  the device's segmentation. No flow control filter is needed to send one
+  (Tech2Win also sends functional requests and UUDT frames this way). With
+  `ISO15765_ADDR_TYPE`, the extended address is the first byte after the id
+  and is passed on as part of the payload. Each one is followed by a `TX_DONE`
+  indication (RxStatus `0x08`, the 4-byte id). **Raw CAN** messages (up to 8 bytes) are
+  sent as they are. On SWCAN, the `SW_CAN_HV_TX` TxFlag sends a
+  `WAKEUP SWCAN` line first, and id `0x100` is a wake-up as on the D-PDU side
+  (one `WAKEUP` line when both apply).
+- Received `RX` lines go to every channel on that bus that accepts them, as
+  J2534 filters decide:
+  - ISO 15765 channel: a message whose id matches a `FLOW_CONTROL_FILTER`
+    pattern arrives as an ISO 15765 message of any length. With
+    `CAN_MIXED_FORMAT` (`0x8000`) set to non-zero, other frames of up to 8 bytes
+    arrive as raw CAN (protocol `CAN` / `CAN_PS` / `SW_CAN_PS`) through the
+    pass / block filters.
+  - Every other channel: a message is received when no `BLOCK_FILTER` and at
+    least one `PASS_FILTER` matches. Without filters nothing is received. A
+    1-byte all-zero pass filter passes every VPW frame. Mask and pattern
+    compare the first 1–12 bytes, on CAN including the id.
+  - Up to 128 filters per channel (Tech2Win sets one per CANdi table entry,
+    64 for the default GMLAN table). The filter's protocol id and TxFlags are
+    ignored. On CAN, the top 3 bits of the id in the mask, pattern and flow
+    control message are cleared (Tech2Win marks 29-bit ids with bit 29), and a
+    5-byte (extended address) filter compares only the 4-byte id, because
+    Tech2Win leaves the 5th byte uninitialised.
+  - Received messages carry no RxStatus bits other than those listed here
+    (`TX_DONE`, `TX_MSG_TYPE` with LOOPBACK, `CAN_29BIT_ID`): no
+    first-frame or padding indications.
+  - RxStatus `CAN_29BIT_ID` (`0x100`) marks ids above `0x7FF`. VPW frames
+    carry no CRC, in both directions.
+  - Each channel queues up to 2000 messages; further ones are dropped (and
+    logged) until the host reads.
+- Filters are reported as `FILTER` lines. A flow control filter is also sent
+  as an `ECU <ch> <BUS> URID=<filter id> REQ=<flow control id> RESP=<pattern id>
+  FORMAT=5 UUDT=0` line, so the simulator learns the request / response ids.
+  `CLEAR_MSG_FILTERS` sends `FILTERCLR <ch>`.
+- `PassThruReadMsgs` waits up to Timeout ms for the requested number of
+  messages. If none arrive, it returns `ERR_BUFFER_EMPTY` (Timeout 0) or
+  `ERR_TIMEOUT`. If only some arrive, it returns `ERR_TIMEOUT` with those
+  messages. `LOOPBACK` (`SET_CONFIG` parameter 3) echoes sent messages with
+  RxStatus `TX_MSG_TYPE`. All functions are thread-safe: a reader thread can
+  block in `PassThruReadMsgs` while another thread writes.
+- `PassThruStartPeriodicMsg` sends a message every 5–65535 ms (up to 10 per
+  channel) until it is stopped, the channel is disconnected or
+  `CLEAR_PERIODIC_MSGS` runs.
+- Ioctls:
+  - `READ_VBATT`: `[Device] VBattMilliVolts`, or `VBATT` from the simulator.
+  - `READ_PROG_VOLTAGE`: 0.
+  - `GET_CONFIG` / `SET_CONFIG`: any parameter is stored and read back.
+    `SET_CONFIG` sends `PARAM <ch> <name> <value>`, e.g. `DATA_RATE 41600` for
+    VPW 4x mode.
+  - `CLEAR_RX_BUFFER`, `CLEAR_TX_BUFFER`, `CLEAR_PERIODIC_MSGS`,
+    `CLEAR_MSG_FILTERS`.
+  - `SW_CAN_HS` / `SW_CAN_NS`: accepted on SWCAN channels.
+  - `FIVE_BAUD_INIT`, `FAST_INIT` and the J1850 PWM lookup table:
+    `ERR_NOT_SUPPORTED`. Other ids: `ERR_INVALID_IOCTL_ID`.
+- `PassThruSetProgrammingVoltage` is accepted and ignored. `PassThruReadVersion`
+  reports `<ModuleName> 2.0`, `<name> 2.0` and `04.04` (`<name>` is
+  `dpdu-bridge-c` / `dpdu-bridge-cs`). Every error sets the text returned by
+  `PassThruGetLastError`.
+
+**Tech2Win.** In Tech2Win, the J2534 path may not be reachable: its interface switch is never set to
+J2534, so it always uses the D-PDU API. The J2534 side is meant for use with other programs.
+
 ## Line protocol
 
 The same protocol is used over serial and TCP: ASCII, one message per line,
@@ -399,7 +511,7 @@ The same protocol is used over serial and TCP: ASCII, one message per line,
 **DLL → simulator** (informational lines can be ignored):
 
 ```
-HELLO <name> 1.0                               module connected (<name>: dpdu-bridge-c / dpdu-bridge-cs)
+HELLO <name> 2.0 [J2534]                       module connected (<name>: dpdu-bridge-c / dpdu-bridge-cs; J2534 when opened via PassThruOpen)
 OPEN <hCLL> <BUS> PROTOCOL=<id> RAW=<0|1> CHECKSUM=<0|1>
 PARAM <hCLL> <CP_name> <value>                 every PDUSetComParam
 ECU <hCLL> <BUS> URID=<hex> REQ=<id> RESP=<id> FORMAT=<n> UUDT=<id>
@@ -407,6 +519,7 @@ CONNECT / DISCONNECT / CLOSE <hCLL>
 STARTCOMM / STOPCOMM <hCLL>
 PROTOCOL <BUS>                                 active bus changed before a send
 FILTER <hCLL> <BUS> <PASS|BLOCK> #<n> MASK=.. PATTERN=..    /   FILTERCLR <hCLL>
+FILTER <ch> <BUS> FLOW #<n> MASK=.. PATTERN=.. FLOW=..      J2534 flow control filter
 WAKEUP SWCAN                                   GMLAN high-voltage wake-up
 TX HSCAN 7E0 22 F1 90                          CAN: <BUS> <CAN id> <payload, no ISO-TP PCI>
 TX SWCAN 241 1A 90

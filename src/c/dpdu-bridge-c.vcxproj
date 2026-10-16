@@ -72,6 +72,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pdu_api.h" />
+    <!-- included by dpdu_bridge.c, not compiled on its own -->
+    <ClInclude Include="j2534.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dpdu_bridge.def" />

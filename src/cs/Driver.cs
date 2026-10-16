@@ -157,10 +157,14 @@ internal static unsafe class Driver
     // Runs on the first API call (the counterpart of the C version's DllMain).
     static Driver()
     {
-        Config.Load();
+        Config.EnsureLoaded();
         _vbattMv = Config.VBattMilliVolts;
-        Link.LineReceived = ProcessLine;
-        Log.Write($"{Config.DriverName} loaded (port {(Config.LinkDesc.Length > 0 ? Config.LinkDesc : "not specified")})");
+    }
+
+    /// <summary>True while a D-PDU host has the module connected (the links belong to the D-PDU API).</summary>
+    public static bool ModuleConnected
+    {
+        get { lock (Sync) return _moduleStatus == Pdu.MODST_READY; }
     }
 
     // ---- helpers ----------------------------------------------------------------
@@ -172,12 +176,13 @@ internal static unsafe class Driver
     private static string BusName(Bus b) => b == Bus.None ? "NONE" : b.ToString();
     private static bool IsCan(Bus b) => b == Bus.HSCAN || b == Bus.SWCAN;
     private static uint Be32(byte* p) => (uint)(p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]);
+    internal static uint Be32(byte[] b) => b.Length < 4 ? 0 : (uint)(b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3]);
 
     /// <summary>
     /// "01 02 0A" (the C version's hex_bytes): output that would not fit in a
     /// C buffer of <paramref name="outSize"/> bytes is left out.
     /// </summary>
-    private static string HexBytes(ReadOnlySpan<byte> p, int outSize)
+    internal static string HexBytes(ReadOnlySpan<byte> p, int outSize)
     {
         var sb = new StringBuilder(p.Length * 3);
         int pos = 0;
@@ -197,7 +202,7 @@ internal static unsafe class Driver
     private static string Cut(string s, int max) => s.Length > max ? s.Substring(0, max) : s;
 
     /// <summary>A NUL-terminated string from the host, one char per byte (as the C version logs it).</summary>
-    private static string CStr(byte* p)
+    internal static string CStr(byte* p)
     {
         int n = 0;
         while (p[n] != 0)
@@ -341,14 +346,14 @@ internal static unsafe class Driver
 
     private static bool IsBlank(char ch) => ch == ' ' || ch == '\t';
 
-    private static void SkipBlanks(string s, ref int pos)
+    internal static void SkipBlanks(string s, ref int pos)
     {
         while (pos < s.Length && IsBlank(s[pos]))
             pos++;
     }
 
     /// <summary>The word at pos (up to a space / tab); pos moves past it and one separator.</summary>
-    private static string Word(string s, ref int pos)
+    internal static string Word(string s, ref int pos)
     {
         int start = pos;
         while (pos < s.Length && !IsBlank(s[pos]))
@@ -412,7 +417,7 @@ internal static unsafe class Driver
         }
     }
 
-    private static Bus ParseBus(string s)
+    internal static Bus ParseBus(string s)
     {
         if (s.Equals("HSCAN", StringComparison.OrdinalIgnoreCase) || s.Equals("CAN", StringComparison.OrdinalIgnoreCase)) return Bus.HSCAN;
         if (s.Equals("SWCAN", StringComparison.OrdinalIgnoreCase) || s.Equals("GMLAN", StringComparison.OrdinalIgnoreCase)) return Bus.SWCAN;
@@ -430,7 +435,7 @@ internal static unsafe class Driver
     /// Hex byte tokens ("01 02 0A", "01020A" or "0x0A", separated by spaces,
     /// tabs or commas); null on bad input or more than max bytes.
     /// </summary>
-    private static byte[] ParseHexBytes(string s, int max)
+    internal static byte[] ParseHexBytes(string s, int max)
     {
         var bytes = new List<byte>();
         foreach (string token in s.Split(new[] { ' ', '\t', ',' }, StringSplitOptions.RemoveEmptyEntries))
@@ -474,7 +479,7 @@ internal static unsafe class Driver
     /// 0xFFFFFFFF. end is the index after the number, or 0 when there are no
     /// digits.
     /// </summary>
-    private static uint StrToUL(string s, int radix, out int end)
+    internal static uint StrToUL(string s, int radix, out int end)
     {
         int i = 0;
         while (i < s.Length && (s[i] == ' ' || (s[i] >= '\t' && s[i] <= '\r')))
@@ -696,7 +701,7 @@ internal static unsafe class Driver
     }
 
     /// <summary>Shown (outside the state lock, the box is modal) when neither a serial nor a TCP port is usable.</summary>
-    private static void ReportPortProblem()
+    internal static void ReportPortProblem()
     {
         string notes = "";
         if (Config.SerialBad)
@@ -745,12 +750,18 @@ internal static unsafe class Driver
                 return Pdu.ERR_INVALID_HANDLE;
             }
         }
+        if (J2534.IsOpen)
+        {
+            Log.Write("the J2534 device of this DLL is open - ReturnValue: PDU_ERR_FCT_FAILED");
+            return Pdu.ERR_FCT_FAILED;
+        }
+        Link.LineReceived = ProcessLine;
         if (!Link.Open())
         {
             Log.Write("Failed connect comport - ReturnValue: PDU_ERR_FCT_FAILED");
             return Pdu.ERR_FCT_FAILED;
         }
-        Link.WriteLine($"HELLO {Config.DriverName} 1.0");
+        Link.WriteLine($"HELLO {Config.DriverName} {Config.DriverVersion}");
         lock (Sync)
             _moduleStatus = Pdu.MODST_READY;
         return Pdu.STATUS_NOERROR;
@@ -1210,7 +1221,7 @@ internal static unsafe class Driver
     /// Sends one message from the host as a TX line (or WAKEUP) on every link.
     /// CAN messages start with the 4-byte big-endian CAN id.
     /// </summary>
-    private static void Transmit(Bus bus, byte[] data)
+    internal static void Transmit(Bus bus, byte[] data)
     {
         if (IsCan(bus))
         {

@@ -18,6 +18,7 @@ namespace DpduBridge;
 internal static class Config
 {
     public const string DriverName = "dpdu-bridge-cs";  // HELLO line, message box title, log
+    public const string DriverVersion = "2.0";         // HELLO line, PassThruReadVersion
     public static string PortName = "";   // [Serial] Port; empty: no serial link
     public static bool SerialBad;          // [Serial] Port is a number, not a COM port name
     public static string TcpPortStr = "";  // [Tcp] Port as written
@@ -37,7 +38,23 @@ internal static class Config
     public static uint VBattMilliVolts = 13000;
     public static bool SoftwareFilters = true;
 
-    public static unsafe void Load()
+    private static readonly object LoadSync = new();
+    private static bool _loaded;
+
+    /// <summary>Loads the settings on the first call (from either API's first call) and logs that the DLL is loaded.</summary>
+    public static void EnsureLoaded()
+    {
+        lock (LoadSync)
+        {
+            if (_loaded)
+                return;
+            Load();
+            _loaded = true;
+        }
+        Log.Write($"{DriverName} loaded (port {(LinkDesc.Length > 0 ? LinkDesc : "not specified")})");
+    }
+
+    private static unsafe void Load()
     {
         // The ini named after the DLL (dpdu-bridge-cs.dll -> dpdu-bridge-cs.ini)
         // is used if it exists, else the dpdu-bridge.ini shared with the C

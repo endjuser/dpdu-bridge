@@ -1,0 +1,61 @@
+Windows Registry Editor Version 5.00
+
+; Example J2534 (PassThru 04.04) registration for dpdu-bridge-c.dll and
+; dpdu-bridge-cs.dll.
+;
+; Keep the section(s) of the version(s) you want to use, change
+; FunctionLibrary to where you put the DLL (backslashes doubled), then import
+; this file as administrator (double-click it, or "reg import").
+; The DLLs are 32-bit, so they are registered in the 32-bit registry view
+; (WOW6432Node), which is where 32-bit hosts such as Tech2Win look. On 32-bit
+; Windows, remove "\WOW6432Node" from the keys. See "J2534" in README.md.
+;
+; Name is at most 7 characters: Tech2Win reads it into a 16-byte buffer and
+; shows a longer name as empty.
+;
+; To remove a registration, import its key with a minus sign, e.g.
+;   [-HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\PassThruSupport.04.04\dpdu-bridge-c]
+
+; C version
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\PassThruSupport.04.04\dpdu-bridge-c]
+"Name"="dpdu-c"
+"Vendor"="dpdu-bridge (Serial/TCP bridge, C)"
+"FunctionLibrary"="C:\\projects\\dpdu\\build\\dpdu-bridge-c.dll"
+"ConfigApplication"=""
+"J1850VPW"=dword:00000001
+"J1850PWM"=dword:00000000
+"ISO9141"=dword:00000000
+"ISO14230"=dword:00000000
+"CAN"=dword:00000001
+"ISO15765"=dword:00000001
+"SCI_A_ENGINE"=dword:00000000
+"SCI_A_TRANS"=dword:00000000
+"SCI_B_ENGINE"=dword:00000000
+"SCI_B_TRANS"=dword:00000000
+"CAN_PS"=dword:00000001
+"ISO15765_PS"=dword:00000001
+"SW_CAN_PS"=dword:00000001
+"SW_ISO15765_PS"=dword:00000001
+"GM_UART_PS"=dword:00000001
+
+; C# version
+[HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\PassThruSupport.04.04\dpdu-bridge-cs]
+"Name"="dpdu-cs"
+"Vendor"="dpdu-bridge (Serial/TCP bridge, C#)"
+"FunctionLibrary"="C:\\projects\\dpdu\\build\\dpdu-bridge-cs.dll"
+"ConfigApplication"=""
+"J1850VPW"=dword:00000001
+"J1850PWM"=dword:00000000
+"ISO9141"=dword:00000000
+"ISO14230"=dword:00000000
+"CAN"=dword:00000001
+"ISO15765"=dword:00000001
+"SCI_A_ENGINE"=dword:00000000
+"SCI_A_TRANS"=dword:00000000
+"SCI_B_ENGINE"=dword:00000000
+"SCI_B_TRANS"=dword:00000000
+"CAN_PS"=dword:00000001
+"ISO15765_PS"=dword:00000001
+"SW_CAN_PS"=dword:00000001
+"SW_ISO15765_PS"=dword:00000001
+"GM_UART_PS"=dword:00000001

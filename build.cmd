@@ -5,7 +5,7 @@ rem   build.cmd c        C version (src\c)       -> build\dpdu-bridge-c.dll
 rem                      (needs VS 2022 Build Tools, or any VS with the C++ tools)
 rem   build.cmd cs       C# Native AOT (src\cs)  -> build\dpdu-bridge-cs.dll
 rem                      (needs .NET 9 SDK + the same C++ tools)
-rem   build.cmd test     builds tests\pdu_test.exe (same C++ tools)
+rem   build.cmd test     builds tests\pdu_test.exe and tests\j2534_test.exe (same C++ tools)
 rem   build.cmd clean    removes the intermediate output of both versions and the test
 rem                      (build\ is kept)
 rem
@@ -42,6 +42,7 @@ call :rmdir "%ROOT%src\cs\obj"
 call :rmdir "%ROOT%src\cs\publish"
 call :rmfile "%ROOT%tests\pdu_test.exe"
 call :rmfile "%ROOT%tests\pdu_test.obj"
+call :rmfile "%ROOT%tests\j2534_test.exe"
 echo clean done
 exit /b 0
 
@@ -98,10 +99,13 @@ if not exist "%ROOT%obj\test" mkdir "%ROOT%obj\test"
 pushd "%ROOT%"
 cl /nologo /W4 /MT /D_CRT_SECURE_NO_WARNINGS /I src\c /Foobj\test\ tests\pdu_test.c /Fe:tests\pdu_test.exe
 set ERR=%ERRORLEVEL%
+if "%ERR%"=="0" cl /nologo /W4 /MT /D_CRT_SECURE_NO_WARNINGS /Foobj\test\ tests\j2534_test.c /Fe:tests\j2534_test.exe
+if "%ERR%"=="0" set ERR=%ERRORLEVEL%
 popd
 if not "%ERR%"=="0" goto failed
-echo built %ROOT%tests\pdu_test.exe
-echo run it with the simulator running:  tests\pdu_test.exe [-c ^| -cs ^| path\to\dll]
+echo built %ROOT%tests\pdu_test.exe and %ROOT%tests\j2534_test.exe
+echo run them with the simulator running:  tests\pdu_test.exe [-c ^| -cs ^| path\to\dll]
+echo                                       tests\j2534_test.exe [-c ^| -cs ^| path\to\dll]
 exit /b 0
 
 :copy
